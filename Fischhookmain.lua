@@ -835,3 +835,76 @@ task.spawn(function()
         end
     end
 end)
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local root = character:WaitForChild("HumanoidRootPart")
+
+-- Fly settings
+local flying = false
+local flySpeed = 500 -- base speed
+local ctrl = {f=0,b=0,l=0,r=0}
+local lastCtrl = {f=0,b=0,l=0,r=0}
+
+local bg, bv
+
+-- Toggle fly on 'p'
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.P then
+		flying = not flying
+
+		if flying then
+			humanoid.PlatformStand = true
+
+			bg = Instance.new("BodyGyro", root)
+			bg.P = 9e4
+			bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+			bg.cframe = root.CFrame
+
+			bv = Instance.new("BodyVelocity", root)
+			bv.velocity = Vector3.new(0,0,0)
+			bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+
+			spawn(function()
+				while flying and root.Parent do
+					RunService.RenderStepped:Wait()
+					local move = Vector3.new(ctrl.l + ctrl.r, 0, ctrl.f + ctrl.b)
+					if move.Magnitude > 0 then
+						move = move.Unit * flySpeed
+						lastCtrl = {f=ctrl.f,b=ctrl.b,l=ctrl.l,r=ctrl.r}
+					else
+						move = Vector3.new(lastCtrl.l + lastCtrl.r, 0, lastCtrl.f + lastCtrl.b).Unit * flySpeed
+					end
+					local camCF = workspace.CurrentCamera.CFrame
+					bv.velocity = (camCF.LookVector * move.Z) + (camCF.RightVector * move.X) + Vector3.new(0, move.Y, 0)
+					bg.CFrame = camCF
+				end
+			end)
+		else
+			humanoid.PlatformStand = false
+			if bg then bg:Destroy() end
+			if bv then bv:Destroy() end
+		end
+	end
+end)
+
+-- Movement controls
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.W then ctrl.f = 1 end
+	if input.KeyCode == Enum.KeyCode.S then ctrl.b = -1 end
+	if input.KeyCode == Enum.KeyCode.A then ctrl.l = -1 end
+	if input.KeyCode == Enum.KeyCode.D then ctrl.r = 1 end
+	if input.KeyCode == Enum.KeyCode.Equals then flySpeed = flySpeed + 50 end -- increase speed
+	if input.KeyCode == Enum.KeyCode.Minus then flySpeed = math.max(50, flySpeed - 50) end -- decrease speed
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then ctrl.f = 0 end
+	if input.KeyCode == Enum.KeyCode.S then ctrl.b = 0 end
+	if input.KeyCode == Enum.KeyCode.A then ctrl.l = 0 end
+	if input.KeyCode == Enum.KeyCode.D then ctrl.r = 0 end
+end)
